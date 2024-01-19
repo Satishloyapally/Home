@@ -26,3 +26,16 @@ if response.status_code == 200:
     print("Success:", response.json())
 else:
     print("Error:", response.status_code, response.text)
+
+8888888
+
+url = "https://opa-test-axmzurahjoxo-phx.process.oci.oraclecloud.com/process/api/v1/applications/Test-Invoice-Upload/versions/1.0/processes/Test-invoice-structured/openapi"
+username = "aiuser"
+password = "Auto123Mate123AI"
+
+response = requests.get(url, auth=HTTPBasicAuth(username, password))
+
+if response.status_code == 200:
+    print("Success:", response.json())
+else:
+    print("Error:", response.status_code, response.text)
