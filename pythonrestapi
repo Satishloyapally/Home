@@ -20,7 +20,7 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 url = "http://your-api-endpoint"
-response = requests.get(url, auth=HTTPBasicAuth('username', 'password'))
+response = requests.get(url, auth=HTTPBasicAuth('aiuser', 'Auto123Mate123AI'))
 
 if response.status_code == 200:
     print("Success:", response.json())
