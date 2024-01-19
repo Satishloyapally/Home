@@ -1,0 +1,16 @@
+pip install requests
+
+import requests
+
+url = "http://your-api-endpoint"
+headers = {
+    "Authorization": "Bearer YOUR_ACCESS_TOKEN",
+    "Content-Type": "application/json"
+}
+
+response = requests.get(url, headers=headers)
+
+if response.status_code == 200:
+    print("Success:", response.json())
+else:
+    print("Error:", response.status_code, response.text)
