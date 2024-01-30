@@ -1,0 +1,199 @@
+
+Obtaining the Client ID and Client Secret is a crucial step in setting up authentication for making API calls to Oracle Process Automation (OPA). These credentials are not automatically fetched, even if you're using a tenancy administrator account. Instead, they need to be created and obtained manually. Here's a general process on how to do it:
+
+Access IDCS/IAM Console: As a tenancy administrator, log in to the Oracle Cloud Infrastructure (OCI) console and navigate to the Identity and Access Management (IDCS/IAM) section.
+
+Register an Application: In the IDCS/IAM dashboard, look for an option to register a new application. This registration process typically involves providing details like the application name, redirect URIs (if applicable), and selecting the type of application (confidential or public).
+
+Configure OAuth Scopes: While setting up the application, you need to configure the OAuth scopes. These scopes define the level of access that the application will have. Make sure to include the scopes required for accessing OPA.
+
+Generate Client Credentials: After registering the application, IDCS/IAM will provide you with the Client ID and Client Secret. These are the credentials your script will use to authenticate API requests.
+
+Use Credentials in Your Script: Incorporate these credentials into your script. Typically, you will use them to make an initial API call to IDCS/IAM to obtain an OAuth token, which is then used for subsequent API calls to OPA.
+
+It's important to handle these credentials securely. Do not hardcode them into your script, especially if the script is stored or shared in a way that could expose these credentials. Instead, consider using environment variables or secure vault services provided by OCI to store and access these credentials.
+
+To incorporate the recommendations for authenticating with Oracle's Identity Cloud Service (IDCS) or Identity and Access Management (IAM) system to obtain a bearer token, and then using this token for Oracle Process Automation (OPA) API calls, you'll need to make significant modifications to your script. The process involves two main steps:
+
+Obtaining an OAuth token from IDCS/IAM.
+Using the obtained token to make API calls to OPA.
+Here's a modified version of your script incorporating these steps. Please note that you'll need to replace placeholders with your actual Client ID, Client Secret, and other relevant information:
+
+import requests
+import json
+import logging
+
+# Setup basic logging
+logging.basicConfig(level=logging.INFO)
+
+# IDCS/IAM OAuth endpoint
+oauth_endpoint = "https://identity.oraclecloud.com/v1/oauth2/token"
+
+# Your Client ID and Client Secret
+client_id = "YOUR_CLIENT_ID"
+client_secret = "YOUR_CLIENT_SECRET"
+
+# OPA REST API endpoint and process ID
+opa_endpoint = "https://opa-test-axmzurahjoxo-phx.process.oci.oraclecloud.com/process/api/v1/processes/YOUR_PROCESS_ID/start"
+
+# Sample payload for OPA - replace with actual data
+payload = {
+    "bucketName": "Test_bucket",
+    "objectName": "oracle_cwoh23_custom_1689370278674001OhWR.pdf"
+}
+
+def get_oauth_token():
+    auth = (client_id, client_secret)
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    data = {
+        "grant_type": "client_credentials",
+        "scope": "https://opa-test-axmzurahjoxo-phx.process.oci.oraclecloud.com/process/api/v1/.default"
+    }
+
+    response = requests.post(oauth_endpoint, headers=headers, data=data, auth=auth)
+    if response.status_code == 200:
+        token = response.json()['access_token']
+        logging.info("Successfully obtained OAuth token.")
+        return token
+    else:
+        logging.error(f"Failed to obtain OAuth token. HTTP Status: {response.status_code}, Response: {response.text}")
+        return None
+
+def trigger_opa_process(token):
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(opa_endpoint, headers=headers, json=payload)
+    if response.status_code == 200:
+        logging.info(f"OPA process triggered successfully for {payload['objectName']}.")
+    else:
+        logging.error(f"Failed to trigger OPA process. HTTP Status: {response.status_code}, Response: {response.text}")
+
+if __name__ == "__main__":
+    token = get_oauth_token()
+    if token:
+        trigger_opa_process(token)
+
+Important Points:
+
+Client ID and Client Secret: You need to replace 'YOUR_CLIENT_ID' and 'YOUR_CLIENT_SECRET' with the actual Client ID and Client Secret that you obtain from IDCS/IAM.
+
+OPA Process ID: Replace 'YOUR_PROCESS_ID' with the actual process ID for your OPA process.
+
+OAuth Scopes: The scope parameter in the get_oauth_token function may need to be adjusted based on what's required for your OPA application.
+
+Security: Ensure you handle Client ID and Client Secret securely. Do not expose them in your code, especially if it's shared or stored in a public place.
+*************
+To update your original script with the new method of obtaining an OAuth token from Oracle's Identity Cloud Service (IDCS) or Identity and Access Management (IAM) and then using this token for Oracle Process Automation (OPA) API calls, significant modifications are required. This update will include a new function to obtain the OAuth token and then use it in the OPA API call. Here's the updated script:
+import imaplib
+import email
+import logging
+import time
+import os
+import requests
+import oci
+from datetime import datetime, timedelta
+
+# Setup logging
+logging.basicConfig(filename='/home/opc/invoiceAi/emaillogfile_v4.log',
+                    filemode='a',
+                    format='%(asctime)s - %(levelname)s - %(message)s',
+                    level=logging.DEBUG)
+
+# Gmail credentials and server details
+imap_host = 'imap.gmail.com'
+imap_user = 'AI-Testing@beastute.com'
+imap_pass = 'ojehtaovlvftkeua'
+
+# OCI Config setup
+config = oci.config.from_file('/root/.oci/config')
+object_storage = oci.object_storage.ObjectStorageClient(config)
+namespace = object_storage.get_namespace().data
+
+# Specify your bucket name
+bucket_name = 'AI-AUTOMATION-INVOICE'
+
+# This dictionary will hold the UIDs and the last processed timestamps of emails
+processed_emails = {}
+
+# IDCS/IAM OAuth endpoint
+oauth_endpoint = "https://identity.oraclecloud.com/v1/oauth2/token"
+
+# Your Client ID and Client Secret
+client_id = "YOUR_CLIENT_ID"
+client_secret = "YOUR_CLIENT_SECRET"
+
+# OPA REST API endpoint and process ID
+opa_endpoint = "https://opa-test-axmzurahjoxo-phx.process.oci.oraclecloud.com/process/api/v1/processes/YOUR_PROCESS_ID/start"
+
+def get_oauth_token():
+    auth = (client_id, client_secret)
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    data = {
+        "grant_type": "client_credentials",
+        "scope": "https://opa-test-axmzurahjoxo-phx.process.oci.oraclecloud.com/process/api/v1/.default"
+    }
+
+    response = requests.post(oauth_endpoint, headers=headers, data=data, auth=auth)
+    if response.status_code == 200:
+        token = response.json()['access_token']
+        logging.info("Successfully obtained OAuth token.")
+        return token
+    else:
+        logging.error(f"Failed to obtain OAuth token. HTTP Status: {response.status_code}, Response: {response.text}")
+        return None
+
+def trigger_opa_process(token, bucket_name, object_name):
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "bucketName": bucket_name,
+        "objectName": object_name
+    }
+    response = requests.post(opa_endpoint, headers=headers, json=payload)
+    if response.status_code == 200:
+        logging.info(f"OPA process triggered successfully for {object_name}.")
+    else:
+        logging.error(f"Failed to trigger OPA process for {object_name}. HTTP Status: {response.status_code}, Response: {response.text}")
+
+def upload_to_oci_object_storage(object_storage, namespace, bucket_name, object_name, file_data):
+    try:
+        object_storage.put_object(namespace, bucket_name, object_name, file_data)
+        logging.info(f'Uploaded {object_name} to OCI Object Storage in bucket {bucket_name}')
+        time.sleep(5)  # Wait for 5 seconds
+        token = get_oauth_token()
+        if token:
+            trigger_opa_process(token, bucket_name, object_name)
+    except Exception as e:
+        logging.error(f'Error in upload_to_oci_object_storage: {e}')
+
+# ... [Rest of your functions like get_internal_date, download_attachments, check_for_invoices]
+
+# Main execution
+if __name__ == "__main__":
+    try:
+        # ... [Your existing login and email checking code]
+        while True:
+            # ... [Your existing invoice checking loop]
+    except Exception as e:
+        logging.error("Error in the main loop: " + str(e))
+Key Changes:
+
+Added the get_oauth_token function to obtain the OAuth token.
+Modified the trigger_opa_process function to use the OAuth token.
+Updated the upload_to_oci_object_storage function to include OAuth token retrieval and usage.
+Important Notes:
+
+Replace 'YOUR_CLIENT_ID' and 'YOUR_CLIENT_SECRET' with your actual Client ID and Client Secret from IDCS/IAM.
+Replace 'YOUR_PROCESS_ID' with the actual process ID for your OPA process.
+Test in a controlled environment to ensure everything works as expected.
+Ensure you handle Client ID and Client Secret securely.
+This script should now authenticate with IDCS/IAM to obtain a token and then use this token to start processes in OPA.
