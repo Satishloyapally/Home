@@ -1,0 +1,15 @@
+Hyper-V test servers
+Name:    LONCAT-VM138.eu.ad.guycarp.com
+Address:  10.227.104.205
+ 
+Name:    LONCAT-VM146.eu.ad.guycarp.com
+Address:  10.227.104.210
+ 
+Name:    LONCAT-VM187.eu.ad.guycarp.com
+Address:  10.227.104.249
+ 
+Name:    GCLON-VPD58.eu.ad.guycarp.com
+Address:  10.227.104.145
+[10:04] Underwood, Ella (Guest)
+GUY-PN-EUNR1-TEST
+10.134.164.0/22
