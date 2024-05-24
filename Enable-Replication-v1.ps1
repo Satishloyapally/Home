@@ -63,7 +63,7 @@ foreach ($row in $inputData) {
             $tagValues = $tagValues -split ","
             if ($tagKeys.Count -ne $tagValues.Count) {
                 Write-Host "Tag Key/Value count mismatch for: '$($VMFriendlyName)'"
-                return
+                return $null
             }
             else {
                 for ($i = 0; $i -lt $tagKeys.Count; $i++) {
@@ -180,23 +180,40 @@ foreach ($row in $inputData) {
         -FriendlyName $VMFriendlyName
 
     # Create a new DR job to start the replication
-    $DRjob = New-AzRecoveryServicesAsrReplicationProtectedItem `
-        -ProtectableItem $ProtectableItem `
-        -Name $ProtectableItem.FriendlyName `
-        -ProtectionContainerMapping $ProtectionContainerMapping `
-        -RecoveryAzureStorageAccountId $DestinationStorageAccountID `
-        -OSDiskName $($ProtectableItem.Disks[0].Name) `
-        -OS $OSType `
-        -SqlServerLicenseType $SqlServerLicenceType `
-        -Size $DestinationSize `
-        -UseManagedDisk $true `
-        -RecoveryResourceGroupId $DestinationResourceGroupID `
-        -RecoveryAvailabilityZone $DestinationAvailabilityZone `
-        -RecoveryAzureNetworkId $DestinationNetworkId `
-        -RecoveryAzureSubnetName $DestinationSubnetName `
-        -RecoveryVmTag $tags `
-        -DiskTag $tags `
-        -RecoveryNicTag $tags
+    if ($tags -ne $null) {
+        $DRjob = New-AzRecoveryServicesAsrReplicationProtectedItem `
+            -ProtectableItem $ProtectableItem `
+            -Name $ProtectableItem.FriendlyName `
+            -ProtectionContainerMapping $ProtectionContainerMapping `
+            -RecoveryAzureStorageAccountId $DestinationStorageAccountID `
+            -OSDiskName $($ProtectableItem.Disks[0].Name) `
+            -OS $OSType `
+            -SqlServerLicenseType $SqlServerLicenceType `
+            -Size $DestinationSize `
+            -UseManagedDisk $true `
+            -RecoveryResourceGroupId $DestinationResourceGroupID `
+            -RecoveryAvailabilityZone $DestinationAvailabilityZone `
+            -RecoveryAzureNetworkId $DestinationNetworkId `
+            -RecoveryAzureSubnetName $DestinationSubnetName `
+            -RecoveryVmTag $tags `
+            -DiskTag $tags `
+            -RecoveryNicTag $tags
+    } else {
+        $DRjob = New-AzRecoveryServicesAsrReplicationProtectedItem `
+            -ProtectableItem $ProtectableItem `
+            -Name $ProtectableItem.FriendlyName `
+            -ProtectionContainerMapping $ProtectionContainerMapping `
+            -RecoveryAzureStorageAccountId $DestinationStorageAccountID `
+            -OSDiskName $($ProtectableItem.Disks[0].Name) `
+            -OS $OSType `
+            -SqlServerLicenseType $SqlServerLicenceType `
+            -Size $DestinationSize `
+            -UseManagedDisk $true `
+            -RecoveryResourceGroupId $DestinationResourceGroupID `
+            -RecoveryAvailabilityZone $DestinationAvailabilityZone `
+            -RecoveryAzureNetworkId $DestinationNetworkId `
+            -RecoveryAzureSubnetName $DestinationSubnetName
+    }
 
     # Not able to use the parameter -LicenseType $WindowsLicenceType only supported by VMware
     # LogStorageAccountId - Specifies the log or cache storage account Id to be used to store replication logs.
