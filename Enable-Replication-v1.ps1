@@ -180,7 +180,7 @@ foreach ($row in $inputData) {
         -FriendlyName $VMFriendlyName
 
     # Create a new DR job to start the replication
-    if ($tags -ne $null) {
+    if ($tags -ne $null -and $tags.Count -gt 0) {
         $DRjob = New-AzRecoveryServicesAsrReplicationProtectedItem `
             -ProtectableItem $ProtectableItem `
             -Name $ProtectableItem.FriendlyName `
