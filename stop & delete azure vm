@@ -1,0 +1,83 @@
+Param(
+    [parameter(Mandatory=$true)]
+    $CsvFilePath
+)
+
+$ErrorActionPreference = "Stop"
+
+$scriptsPath = $PSScriptRoot
+if ($PSScriptRoot -eq "") {
+    $scriptsPath = "."
+}
+
+. "$scriptsPath\AzMigrate_Logger.ps1"
+. "$scriptsPath\AzMigrate_Shared.ps1"
+. "$scriptsPath\AzMigrate_CSV_Processor.ps1"
+
+Function StopAndDeleteAzureVMImpl($processor, $csvItem, $reportItem) {
+    $reportItem | Add-Member NoteProperty "AdditionalInformation" $null
+
+    $vmName = $csvItem.VM_NAME
+    if ([string]::IsNullOrEmpty($vmName)) {
+        $processor.Logger.LogError("VM_NAME is not mentioned in the csv file")
+        $reportItem.AdditionalInformation = "VM_NAME is not mentioned in the csv file" 
+        return
+    }
+
+    $resourceGroupName = $csvItem.RESOURCE_GROUP_NAME
+    if ([string]::IsNullOrEmpty($resourceGroupName)) {
+        $processor.Logger.LogError("RESOURCE_GROUP_NAME is not mentioned for: '$($vmName)'")
+        $reportItem.AdditionalInformation = "RESOURCE_GROUP_NAME is not mentioned for: '$($vmName)'"
+        return
+    }
+
+    $vm = Get-AzVM -ResourceGroupName $resourceGroupName -Name $vmName -ErrorAction SilentlyContinue
+    if (-not $vm) {
+        $processor.Logger.LogError("VM '$($vmName)' not found in resource group '$($resourceGroupName)'")
+        $reportItem.AdditionalInformation = "VM '$($vmName)' not found in resource group '$($resourceGroupName)'"
+        return
+    }
+
+    $processor.Logger.LogTrace("Stopping VM: '$($vmName)' in resource group: '$($resourceGroupName)'")
+    $stopVMJob = Stop-AzVM -ResourceGroupName $resourceGroupName -Name $vmName -Force -ErrorAction SilentlyContinue
+
+    if ($stopVMJob.Status -ne "Succeeded") {
+        $processor.Logger.LogError("Failed to stop VM: '$($vmName)' in resource group: '$($resourceGroupName)'")
+        $reportItem.AdditionalInformation = "Failed to stop VM: '$($vmName)' in resource group: '$($resourceGroupName)'"
+    } else {
+        $processor.Logger.LogTrace("VM: '$($vmName)' in resource group: '$($resourceGroupName)' stopped successfully")
+
+        $processor.Logger.LogTrace("Deleting VM: '$($vmName)' in resource group: '$($resourceGroupName)'")
+        $deleteVMJob = Remove-AzVM -ResourceGroupName $resourceGroupName -Name $vmName -Force -ErrorAction SilentlyContinue
+
+        if ($deleteVMJob.Status -ne "Succeeded") {
+            $processor.Logger.LogError("Failed to delete VM: '$($vmName)' in resource group: '$($resourceGroupName)'")
+            $reportItem.AdditionalInformation = "Failed to delete VM: '$($vmName)' in resource group: '$($resourceGroupName)'"
+        } else {
+            $processor.Logger.LogTrace("VM: '$($vmName)' in resource group: '$($resourceGroupName)' deleted successfully")
+        }
+    }
+}
+
+Function StopAndDeleteAzureVM($processor, $csvItem, $reportItem) {
+    try {
+        StopAndDeleteAzureVMImpl $processor $csvItem $reportItem
+    }
+    catch {
+        $exceptionMessage = $_ | Out-String
+        $reportItem.Exception = $exceptionMessage
+        $processor.Logger.LogErrorAndThrow($exceptionMessage)
+    }
+}
+
+$logger = New-AzMigrate_LoggerInstance -CommandPath $PSCommandPath
+$AzMigrateShared = New-AzMigrate_SharedInstance -Logger $logger
+$processor = New-CsvProcessorInstance -logger $logger -processItemFunction $function:StopAndDeleteAzureVM
+$processor.ProcessFile($CsvFilePath)
+
+
+CSV-
+  VM_NAME,RESOURCE_GROUP_NAME
+myVM1,myResourceGroup1
+myVM2,myResourceGroup2
+...
