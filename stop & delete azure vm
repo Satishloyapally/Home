@@ -78,6 +78,6 @@ $processor.ProcessFile($CsvFilePath)
 
 CSV-
   VM_NAME,RESOURCE_GROUP_NAME
-myVM1,myResourceGroup1
-myVM2,myResourceGroup2
+enter_mmc's_vmname,mmmc_sResourceGroup1
+enter_mmc's_vmname,mmc_ResourceGroup2
 ...
