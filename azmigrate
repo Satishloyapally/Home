@@ -23,7 +23,11 @@ Function ApplyTags {
     )
     $resource = Get-AzResource -ResourceId $ResourceId
     if ($resource) {
-        Set-AzResource -ResourceId $ResourceId -Tag $tags -Force
+        $validTags = @{}
+        foreach ($key in $tags.Keys) {
+            $validTags[$key] = $tags[$key]
+        }
+        Set-AzResource -ResourceId $ResourceId -Tag $validTags -Force
     } else {
         Write-Error "Resource with ID $ResourceId not found."
     }
@@ -90,6 +94,9 @@ Function ProcessItemImpl($processor, $csvItem, $reportItem) {
     for ($i = 0; $i -lt $tagKeys.Length; $i++) {
         $tags[$tagKeys[$i].Trim()] = $tagValues[$i].Trim()
     }
+
+    # Log tags for debugging
+    $processor.Logger.LogTrace("Applying tags: $($tags.GetEnumerator() | ForEach-Object { $_.Key + '=' + $_.Value })")
 
     # Apply tags to the VM
     ApplyTags -ResourceId $ReplicatingServermachine.Id -tags $tags
