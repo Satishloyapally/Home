@@ -88,7 +88,7 @@ Function ProcessItemImpl($processor, $csvItem, $reportItem) {
     $tagValues = $csvItem.TAG_VALUE -split ","
     $tags = @{}
     for ($i = 0; $i -lt $tagKeys.Length; $i++) {
-        $tags[$tagKeys[$i]] = $tagValues[$i]
+        $tags[$tagKeys[$i].Trim()] = $tagValues[$i].Trim()
     }
 
     # Apply tags to the VM
