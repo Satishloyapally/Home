@@ -1,0 +1,9 @@
+	  "responsibleOrg": "Guy Carpenter",
+        "backupPolicy": "Short",
+        "patchContact": "z-CHG GC Analytics Infr Svc",
+	  "F5ServiceDiscovery":"gc-n-azure-eunr1-pool-kcenter-sit"
+
+responsibleOrg,backupPolicy,patchContact,F5ServiceDiscovery                 
+Guy Carpenter,Short,z-CHG GC Analytics Infr Svc,gc-n-azure-eunr1-pool-kcenter-sit
+
+Guy Carpenter,Short,z-CHG GC Analytics Infr Svc,none
