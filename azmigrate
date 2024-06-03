@@ -17,11 +17,16 @@ if ($PSScriptRoot -eq "") {
 Function ApplyTags {
     param (
         [parameter(Mandatory=$true)]
-        [Microsoft.Azure.Commands.ResourceManager.Cmdlets.SdkModels.PSResource]$resource,
+        [string]$ResourceId,
         [parameter(Mandatory=$true)]
         [hashtable]$tags
     )
-    Set-AzResource -ResourceId $resource.ResourceId -Tag $tags -Force
+    $resource = Get-AzResource -ResourceId $ResourceId
+    if ($resource) {
+        Set-AzResource -ResourceId $ResourceId -Tag $tags -Force
+    } else {
+        Write-Error "Resource with ID $ResourceId not found."
+    }
 }
 
 Function ProcessItemImpl($processor, $csvItem, $reportItem) {
@@ -87,18 +92,18 @@ Function ProcessItemImpl($processor, $csvItem, $reportItem) {
     }
 
     # Apply tags to the VM
-    ApplyTags -resource $ReplicatingServermachine -tags $tags
+    ApplyTags -ResourceId $ReplicatingServermachine.Id -tags $tags
 
     # Apply tags to Disks
     foreach ($disk in $ReplicatingServermachine.Properties.storageProfile.dataDisks) {
         $diskResource = Get-AzResource -ResourceId $disk.managedDisk.id
-        ApplyTags -resource $diskResource -tags $tags
+        ApplyTags -ResourceId $diskResource.ResourceId -tags $tags
     }
 
     # Apply tags to NICs
     foreach ($nic in $ReplicatingServermachine.Properties.networkProfile.networkInterfaces) {
         $nicResource = Get-AzResource -ResourceId $nic.id
-        ApplyTags -resource $nicResource -tags $tags
+        ApplyTags -ResourceId $nicResource.ResourceId -tags $tags
     }
 
     # Start the migration
