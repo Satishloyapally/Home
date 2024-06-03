@@ -1,0 +1,33 @@
+  "policyRule": {
+      "if": {
+        "allof": [
+          {
+            "equals": "Microsoft.Compute/VirtualMachines",
+            "field": "type"
+          },
+          {
+            "anyOf": [
+              {
+                "exists": "false",
+                "field": "tags.appName"
+              },
+              {
+                "exists": "false",
+                "field": "tags.backupPolicy"
+              },
+              {
+                "exists": "false",
+                "field": "tags.patchContact"
+              },
+              {
+                "exists": "false",
+                "field": "tags.responsibleOrg"
+              }
+            ]
+          }
+        ]
+      },
+      "then": {
+        "effect": "Deny"
+      }
+    },
