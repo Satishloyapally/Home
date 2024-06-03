@@ -43,7 +43,7 @@ Function ProcessItemImpl($processor, $csvItem, $reportItem) {
     $azMigrateProjName = $csvItem.AZMIGRATEPROJECT_NAME
     if ([string]::IsNullOrEmpty($azMigrateProjName)) {
         $processor.Logger.LogError("AZMIGRATEPROJECT_NAME is not mentioned for: '$($sourceMachineName)'")
-        $reportItem.AdditionalInformation = "AZMIGRATEPROJECT_NAME is not mentioned for: '$($sourceMachineName)'"
+        $reportItem.AdditionalInformation = "AZMIGRATEPROJECT_RESOURCE_GROUP_NAME is not mentioned for: '$($sourceMachineName)'"
         return
     }
     $azMigrateApplianceName = $csvItem.AZMIGRATE_APPLIANCE_NAME
@@ -52,18 +52,19 @@ Function ProcessItemImpl($processor, $csvItem, $reportItem) {
         $reportItem.AdditionalInformation = "AZMIGRATE_APPLIANCE_NAME is not mentioned for: '$($sourceMachineName)'"
         return
     }
-    # Retrieve the information if we should turn off the source server
+    
+    # Retrieving the information if we should turn off the source server
     $TurnOff_SrcServer = $csvItem.TURNOFF_SOURCESERVER
     if ([string]::IsNullOrEmpty($TurnOff_SrcServer)) {
         $processor.Logger.LogTrace("TURNOFF_SOURCESERVER is not mentioned for: '$($sourceMachineName)'")
     }
 
-    # Validate if we can/should run TestMigrate for this machine
+    # Validate if we can/should run TestMigrate at all for this machine
     $ReplicatingServermachine = $AzMigrateShared.GetReplicationServer($azMigrateRG, $azMigrateProjName, $sourceMachineName, $azMigrateApplianceName)
     
     if((-not $ReplicatingServermachine) -or ($csvItem.OK_TO_MIGRATE -ne 'Y') `
         -or (($ReplicatingServermachine.MigrationState -ne "Replicating") -and ($ReplicatingServermachine.MigrationStateDescription -ne "Ready to migrate")) `
-        -or (-not $ReplicatingServermachine.AllowedOperation -contains "Migrate")){
+        -or (-not $ReplicatingServermachine.AllowedOperation -contains "Migrate")) {
 
         $processor.Logger.LogError("We cannot initiate Migration as either it is not configured in csv file OR the state of this machine replication is not suitable for initiating Migration Now: '$($sourceMachineName)'")
         $reportItem.AdditionalInformation = "We cannot initiate Migration as either it is not configured in csv file OR the state of this machine replication is not suitable for initiating Migration Now: '$($sourceMachineName)'. Please Run AzMigrate_UpdateReplicationStatus.ps1 and look at the output csv file which may provide more details"
@@ -77,12 +78,12 @@ Function ProcessItemImpl($processor, $csvItem, $reportItem) {
 
     $osUpgradeVersion = $csvItem.OS_UPGRADE_VERSION
 
-    # Define tags
-    $tags = @{
-        "responsibleOrg" = "Guy Carpenter"
-        "backupPolicy" = "Short"
-        "patchContact" = "z-CHG GC Analytics Infr Svc"
-        "appName" = "KCENTER GC - EMEA"
+    # Parse TAG_KEY and TAG_VALUE from CSV and create a hashtable of tags
+    $tagKeys = $csvItem.TAG_KEY -split ","
+    $tagValues = $csvItem.TAG_VALUE -split ","
+    $tags = @{}
+    for ($i = 0; $i -lt $tagKeys.Length; $i++) {
+        $tags[$tagKeys[$i]] = $tagValues[$i]
     }
 
     # Apply tags to the VM
@@ -102,8 +103,8 @@ Function ProcessItemImpl($processor, $csvItem, $reportItem) {
 
     # Start the migration
     if ([string]::IsNullOrEmpty($TurnOff_SrcServer) -or ($TurnOff_SrcServer -eq 'N') -or ($TurnOff_SrcServer -eq 'No')) {
-        # We are defaulting to this if Turn off Source Server is not mentioned
-        if ([string]::IsNullOrEmpty($osUpgradeVersion)) {
+        # Defaulting to this if Turn off Source Server is not mentioned
+        if([string]::IsNullOrEmpty($osUpgradeVersion)) {
             $processor.Logger.LogTrace("OS_UPGRADE_VERSION is not mentioned for: '$($sourceMachineName)'")
             $reportItem.AdditionalInformation = "OS_VERSION_UPGRADE is not mentioned for: '$($sourceMachineName)'"
             $MigrateJob = Start-AzMigrateServerMigration -InputObject $ReplicatingServermachine
@@ -111,7 +112,7 @@ Function ProcessItemImpl($processor, $csvItem, $reportItem) {
             $MigrateJob = Start-AzMigrateServerMigration -InputObject $ReplicatingServermachine -OsUpgradeVersion $osUpgradeVersion
         }
     } else {
-        if ([string]::IsNullOrEmpty($osUpgradeVersion)) {
+        if([string]::IsNullOrEmpty($osUpgradeVersion)) {
             $processor.Logger.LogTrace("OS_UPGRADE_VERSION is not mentioned for: '$($sourceMachineName)'")
             $reportItem.AdditionalInformation = "OS_VERSION_UPGRADE is not mentioned for: '$($sourceMachineName)'"
             $MigrateJob = Start-AzMigrateServerMigration -InputObject $ReplicatingServermachine -TurnOffSourceServer
@@ -131,7 +132,8 @@ Function ProcessItemImpl($processor, $csvItem, $reportItem) {
 Function ProcessItem($processor, $csvItem, $reportItem) {
     try {
         ProcessItemImpl $processor $csvItem $reportItem
-    } catch {
+    }
+    catch {
         $exceptionMessage = $_ | Out-String
         $reportItem.Exception = $exceptionMessage
         $processor.Logger.LogErrorAndThrow($exceptionMessage)        
