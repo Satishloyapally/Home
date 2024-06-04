@@ -1,0 +1,152 @@
+Script Header and Parameter Declaration
+powershell
+Copy code
+Param(
+    [parameter(Mandatory=$true)]
+    $CsvFilePath
+)
+Param block: This defines the input parameter for the script.
+$CsvFilePath: This is a mandatory parameter that specifies the path to the CSV file containing the migration data.
+Error Handling and Script Path Setup
+powershell
+Copy code
+$ErrorActionPreference = "Stop"
+
+$scriptsPath = $PSScriptRoot
+if ($PSScriptRoot -eq "") {
+    $scriptsPath = "."
+}
+$ErrorActionPreference = "Stop": This sets the error handling preference to stop execution if any errors occur.
+$PSScriptRoot: This is a built-in variable that contains the directory from which the script is being executed.
+$scriptsPath: This sets the path to the directory of the script. If $PSScriptRoot is empty, it defaults to the current directory.
+Importing Required Scripts
+powershell
+Copy code
+. "$scriptsPath\AzMigrate_Logger.ps1"
+. "$scriptsPath\AzMigrate_Shared.ps1"
+. "$scriptsPath\AzMigrate_CSV_Processor.ps1"
+. (dot source): This command is used to include the specified script files in the current script. This means that functions and variables defined in those scripts become available to this script.
+Processing Function Implementation
+powershell
+Copy code
+Function ProcessItemImpl($processor, $csvItem, $reportItem) {
+    
+    $reportItem | Add-Member NoteProperty "AdditionalInformation" $null
+Function ProcessItemImpl: This defines a function to process each item (row) from the CSV file.
+$processor, $csvItem, $reportItem: Parameters passed to the function.
+Add-Member: Adds a new property "AdditionalInformation" to the $reportItem object, initialized to $null.
+Basic Validations
+powershell
+Copy code
+    $sourceMachineName = $csvItem.SOURCE_MACHINE_NAME
+    if ([string]::IsNullOrEmpty($sourceMachineName)) {
+        $processor.Logger.LogError("SOURCE_MACHINE_NAME is not mentioned in the csv file")
+        $reportItem.AdditionalInformation = "SOURCE_MACHINE_NAME is not mentioned in the csv file" 
+        return
+    }
+$sourceMachineName = $csvItem.SOURCE_MACHINE_NAME: Retrieves the source machine name from the CSV item.
+[string]::IsNullOrEmpty: Checks if the source machine name is empty or null. If so, logs an error and returns.
+Similar checks are performed for $azMigrateRG, $azMigrateProjName, and $azMigrateApplianceName.
+
+Tag Validation
+powershell
+Copy code
+    $requiredTags = @("appName", "backupPolicy", "patchContact", "responsibleOrg")
+    $tagKeys = $csvItem.TAG_KEY -split ","
+    $tagValues = $csvItem.TAG_VALUE -split ","
+    $tags = @{}
+    for ($i = 0; $i -lt $tagKeys.Length; $i++) {
+        $tags[$tagKeys[$i]] = $tagValues[$i]
+    }
+
+    foreach ($tag in $requiredTags) {
+        if (-not $tags.ContainsKey($tag)) {
+            $processor.Logger.LogError("Required tag '$tag' is not mentioned for: '$($sourceMachineName)'")
+            $reportItem.AdditionalInformation = "Required tag '$tag' is not mentioned for: '$($sourceMachineName)'"
+            return
+        }
+    }
+$requiredTags: An array of required tag keys.
+$tagKeys and $tagValues: Split the TAG_KEY and TAG_VALUE fields from the CSV into arrays.
+$tags: Creates a dictionary of tag key-value pairs.
+foreach loop: Ensures all required tags are present. Logs an error and returns if any required tag is missing.
+Retrieve Source Server Information
+powershell
+Copy code
+    $TurnOff_SrcServer = $csvItem.TURNOFF_SOURCESERVER
+    if ([string]::IsNullOrEmpty($TurnOff_SrcServer)) {
+        $processor.Logger.LogTrace("TURNOFF_SOURCESERVER is not mentioned for: '$($sourceMachineName)'")
+    }
+
+    $ReplicatingServermachine = $AzMigrateShared.GetReplicationServer($azMigrateRG, $azMigrateProjName, $sourceMachineName, $azMigrateApplianceName)
+    
+    if((-not $ReplicatingServermachine) -or ($csvItem.OK_TO_MIGRATE -ne 'Y') `
+        -or (($ReplicatingServermachine.MigrationState -ne "Replicating") -and ($ReplicatingServermachine.MigrationStateDescription -ne "Ready to migrate")) `
+        -or (-not $ReplicatingServermachine.AllowedOperation -contains "Migrate")){
+$TurnOff_SrcServer: Retrieves the TURNOFF_SOURCESERVER field from the CSV.
+$AzMigrateShared.GetReplicationServer: Calls a shared function to get the replication server information.
+if conditions: Validates if migration can be initiated based on the server's state and allowed operations.
+Migration Job Initiation
+powershell
+Copy code
+    $osUpgradeVersion = $csvItem.OS_UPGRADE_VERSION
+
+    if ([string]::IsNullOrEmpty($TurnOff_SrcServer) -or ($TurnOff_SrcServer -eq 'N') -or ($TurnOff_SrcServer -eq 'No')) {
+        if([string]::IsNullOrEmpty($osUpgradeVersion)){
+            $processor.Logger.LogTrace("OS_UPGRADE_VERSION is not mentioned for: '$($sourceMachineName)'")
+            $reportItem.AdditionalInformation = "OS_VERSION_UPGRADE is not mentioned for: '$($sourceMachineName)'"
+            $MigrateJob = Start-AzMigrateServerMigration -InputObject $ReplicatingServermachine
+        } else {
+            $MigrateJob = Start-AzMigrateServerMigration -InputObject $ReplicatingServermachine -OsUpgradeVersion $osUpgradeVersion
+        }
+    } else {
+        if([string]::IsNullOrEmpty($osUpgradeVersion)){
+            $processor.Logger.LogTrace("OS_UPGRADE_VERSION is not mentioned for: '$($sourceMachineName)'")
+            $reportItem.AdditionalInformation = "OS_VERSION_UPGRADE is not mentioned for: '$($sourceMachineName)'"
+            $MigrateJob = Start-AzMigrateServerMigration -InputObject $ReplicatingServermachine -TurnOffSourceServer
+        } else {
+            $MigrateJob = Start-AzMigrateServerMigration -InputObject $ReplicatingServermachine -TurnOffSourceServer -OsUpgradeVersion $osUpgradeVersion
+        }
+    }
+    
+    if (-not $MigrateJob){
+        $processor.Logger.LogError("Migration Job couldn't be initiated for the specified machine: '$($sourceMachineName)'")   
+        $reportItem.AdditionalInformation = "Migration Job couldn't be initiated for the specified machine: '$($sourceMachineName)'. Please Run AzMigrate_UpdateReplicationStatus.ps1 and look at the output csv file which may provide more details)"                  
+    } else {
+        $processor.Logger.LogTrace("Migration Job is initiated for the specified machine: '$($sourceMachineName)'")    
+
+        $targetVM = Get-AzVM -ResourceGroupName $csvItem.TARGET_RESOURCE_GROUP_NAME -Name $csvItem.TARGET_MACHINE_NAME
+        if ($null -ne $targetVM) {
+            Set-AzResource -ResourceId $targetVM.Id -Tag $tags -Force
+            $processor.Logger.LogTrace("Tags have been successfully applied to the VM: '$($sourceMachineName)'")
+        } else {
+            $processor.Logger.LogError("Failed to retrieve the target VM to apply tags for: '$($sourceMachineName)'")
+        }
+    }    
+$osUpgradeVersion: Retrieves the OS_UPGRADE_VERSION field from the CSV.
+Migration initiation logic: Based on the TurnOff_SrcServer and osUpgradeVersion values, the migration job is initiated using Start-AzMigrateServerMigration.
+Set-AzResource: Applies the tags to the migrated VM using its resource ID.
+Error Handling and Main Function Invocation
+powershell
+Copy code
+Function ProcessItem($processor, $csvItem, $reportItem) {
+    try {
+        ProcessItemImpl $processor $csvItem $reportItem
+    }
+    catch {
+        $exceptionMessage = $_ | Out-String
+        $reportItem.Exception = $exceptionMessage
+        $processor.Logger.LogErrorAndThrow($exceptionMessage)        
+    }
+}
+
+$logger = New-AzMigrate_LoggerInstance -CommandPath $PSCommandPath
+$AzMigrateShared = New-AzMigrate_SharedInstance -Logger $logger
+$processor = New-CsvProcessorInstance -logger $logger -processItemFunction $function:ProcessItem
+$processor.ProcessFile($CsvFilePath)
+ProcessItem: Wrapper function that calls ProcessItemImpl and handles any exceptions, logging them appropriately.
+New-AzMigrate_LoggerInstance: Creates a new logger instance.
+New-AzMigrate_SharedInstance: Creates a new shared instance.
+New-CsvProcessorInstance: Creates a new CSV processor instance with the specified logger and processing function.
+$processor.ProcessFile($CsvFilePath): Processes the CSV file, iterating over each item and invoking ProcessItem.
+This script processes each row of the provided CSV file, validates necessary fields, retrieves replication server details, initiates the migration if conditions are met, and applies required tags to ensure compliance with the policy.
