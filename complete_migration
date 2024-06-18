@@ -78,6 +78,16 @@ Function ProcessItemImpl($processor, $csvItem, $reportItem) {
         return
     }
 
+    $subscriptionId = $csvItem.AZMIGRATEPROJECT_SUBSCRIPTION_ID
+    if ([string]::IsNullOrEmpty($subscriptionId)) {
+        $processor.Logger.LogError("AZMIGRATEPROJECT_SUBSCRIPTION_ID is not mentioned for: '$($sourceMachineName)'")
+        $reportItem.AdditionalInformation = "AZMIGRATEPROJECT_SUBSCRIPTION_ID is not mentioned for: '$($sourceMachineName)'"
+        return
+    }
+
+    Write-Output "Setting Azure context to subscription ID: $subscriptionId"
+    Set-AzContext -SubscriptionId $subscriptionId -ErrorAction Stop
+
     # Retrieve the replication server
     $ReplicatingServermachine = $AzMigrateShared.GetReplicationServer($azMigrateRG, $azMigrateProjName, $sourceMachineName, $azMigrateApplianceName)
 
@@ -102,17 +112,8 @@ Function ProcessItem($processor, $csvItem, $reportItem) {
     }
 }
 
-# Ensure the subscription ID is set correctly
-$subscriptionId = "9b91a2ed-d806-40f2-92ab-e84f03240880"
-if ([string]::IsNullOrEmpty($subscriptionId)) {
-    Write-Error "Subscription ID is not set. Please provide a valid subscription ID."
-    exit 1
-}
-
-Write-Output "Setting Azure context to subscription ID: $subscriptionId"
-Set-AzContext -SubscriptionId $subscriptionId -ErrorAction Stop
-
 $logger = New-AzMigrate_LoggerInstance -CommandPath $PSCommandPath
 $AzMigrateShared = New-AzMigrate_SharedInstance -Logger $logger
 $processor = New-CsvProcessorInstance -logger $logger -processItemFunction $function:ProcessItem
 $processor.ProcessFile($CsvFilePath)
+
