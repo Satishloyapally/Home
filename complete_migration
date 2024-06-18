@@ -1,0 +1,106 @@
+SOURCE_MACHINE_NAME,AZMIGRATEPROJECT_RESOURCE_GROUP_NAME,AZMIGRATEPROJECT_NAME,AZMIGRATE_APPLIANCE_NAME
+GBBE13V0814,GUY-PP-EUNR1-AZUREMIGRATE,GUY-PP-EUNR1-AZUREMIGRATE,GBBED11AS867V
+GBBE13V0815,GUY-PP-EUNR1-AZUREMIGRATE,GUY-PP-EUNR1-AZUREMIGRATE,GBBED11AS867V
+
+
+Param(
+    [parameter(Mandatory=$true)]
+    $CsvFilePath
+)
+
+$ErrorActionPreference = "Stop"
+
+$scriptsPath = $PSScriptRoot
+if ($PSScriptRoot -eq "") {
+    $scriptsPath = "."
+}
+
+. "$scriptsPath\AzMigrate_Logger.ps1"
+. "$scriptsPath\AzMigrate_Shared.ps1"
+. "$scriptsPath\AzMigrate_CSV_Processor.ps1"
+
+# Import Azure Migrate module
+Import-Module Az.Migrate
+
+Function CompleteMigration($replicatingServer) {
+    try {
+        # Complete the migration for the server
+        $CompleteMigrationJob = Start-AzMigrateReplicationMigration -InputObject $replicatingServer
+        
+        # Track job status to check for completion
+        while (($CompleteMigrationJob.State -eq 'InProgress') -or ($CompleteMigrationJob.State -eq 'NotStarted')) {
+            # If the job hasn't completed, sleep for 10 seconds before checking the job status again
+            Start-Sleep -Seconds 10
+            $CompleteMigrationJob = Get-AzMigrateJob -InputObject $CompleteMigrationJob
+        }
+        
+        # Check if the Job completed successfully
+        if ($CompleteMigrationJob.State -eq 'Succeeded') {
+            $processor.Logger.LogTrace("Migration completed successfully for the specified machine: '$($replicatingServer.SourceVMName)'")
+        } else {
+            $processor.Logger.LogError("Migration couldn't be completed for the specified machine: '$($replicatingServer.SourceVMName)' - Job State: $($CompleteMigrationJob.State)")
+        }
+    } catch {
+        $exceptionMessage = $_ | Out-String
+        $processor.Logger.LogError("Exception during completing migration for '$($replicatingServer.SourceVMName)': $exceptionMessage")
+    }
+}
+
+Function ProcessItemImpl($processor, $csvItem, $reportItem) {
+    $reportItem | Add-Member NoteProperty "AdditionalInformation" $null
+
+    $sourceMachineName = $csvItem.SOURCE_MACHINE_NAME
+    if ([string]::IsNullOrEmpty($sourceMachineName)) {
+        $processor.Logger.LogError("SOURCE_MACHINE_NAME is not mentioned in the csv file")
+        $reportItem.AdditionalInformation = "SOURCE_MACHINE_NAME is not mentioned in the csv file"
+        return
+    }
+    $azMigrateRG = $csvItem.AZMIGRATEPROJECT_RESOURCE_GROUP_NAME
+    if ([string]::IsNullOrEmpty($azMigrateRG)) {
+        $processor.Logger.LogError("AZMIGRATEPROJECT_RESOURCE_GROUP_NAME is not mentioned for: '$($sourceMachineName)'")
+        $reportItem.AdditionalInformation = "AZMIGRATEPROJECT_RESOURCE_GROUP_NAME is not mentioned for: '$($sourceMachineName)'"
+        return
+    }
+    $azMigrateProjName = $csvItem.AZMIGRATEPROJECT_NAME
+    if ([string]::IsNullOrEmpty($azMigrateProjName)) {
+        $processor.Logger.LogError("AZMIGRATEPROJECT_NAME is not mentioned for: '$($sourceMachineName)'")
+        $reportItem.AdditionalInformation = "AZMIGRATEPROJECT_RESOURCE_GROUP_NAME is not mentioned for: '$($sourceMachineName)'"
+        return
+    }
+    $azMigrateApplianceName = $csvItem.AZMIGRATE_APPLIANCE_NAME
+    if ([string]::IsNullOrEmpty($azMigrateApplianceName)) {
+        $processor.Logger.LogError("AZMIGRATE_APPLIANCE_NAME is not mentioned for: '$($sourceMachineName)'")
+        $reportItem.AdditionalInformation = "AZMIGRATE_APPLIANCE_NAME is not mentioned for: '$($sourceMachineName)'"
+        return
+    }
+
+    # Retrieve the replication server
+    $ReplicatingServermachine = $AzMigrateShared.GetReplicationServer($azMigrateRG, $azMigrateProjName, $sourceMachineName, $azMigrateApplianceName)
+
+    if (-not $ReplicatingServermachine) {
+        $processor.Logger.LogError("Replication server not found or error retrieving for machine: '$($sourceMachineName)'")
+        $reportItem.AdditionalInformation = "Replication server not found or error retrieving for machine: '$($sourceMachineName)'. Please ensure the replication server exists and is accessible."
+        return
+    }
+
+    # Complete the migration
+    CompleteMigration -replicatingServer $ReplicatingServermachine
+}
+
+Function ProcessItem($processor, $csvItem, $reportItem) {
+    try {
+        ProcessItemImpl $processor $csvItem $reportItem
+    }
+    catch {
+        $exceptionMessage = $_ | Out-String
+        $reportItem.Exception = $exceptionMessage
+        $processor.Logger.LogErrorAndThrow($exceptionMessage)
+    }
+}
+
+$logger = New-AzMigrate_LoggerInstance -CommandPath $PSCommandPath
+$AzMigrateShared = New-AzMigrate_SharedInstance -Logger $logger
+$processor = New-CsvProcessorInstance -logger $logger -processItemFunction $function:ProcessItem
+$processor.ProcessFile($CsvFilePath)
+
+
