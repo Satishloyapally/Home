@@ -6,7 +6,6 @@ AZMIGRATEPROJECT_SUBSCRIPTION_ID,AZMIGRATEPROJECT_RESOURCE_GROUP_NAME,AZMIGRATEP
 0c608708-8dca-42ac-9a36-0fd35523f857,GUY-PP-EUNR1-AZUREMIGRATE,GUY-PP-EUNR1-AZUREMIGRATE,GBBED11AS867V,GBBE13V0814,,,,,,,"responsibleOrg,backupPolicy,patchContact,appName","Guy Carpenter,Short,z-CHG GC Analytics Infr Svc,KCENTER GC - EMEA",,,,,,,9b91a2ed-d806-40f2-92ab-e84f03240880,gc-azmigratepilot-emea-privatedev-rg,GUY-PV-EUNR1,GUY-PV-EUNR1-DEV,GBBE13V0815,Standard_B2s_v2,WindowsServer,,Standard_LRS,,StandardSSD_LRS,,1,,Y,,,"responsibleOrg,backupPolicy,patchContact,appName","Guy Carpenter,Short,z-CHG GC Analytics Infr Svc,KCENTER GC - EMEA",Merge,"responsibleOrg,backupPolicy,patchContact,appName","Guy Carpenter,Short,z-CHG GC Analytics Infr Svc,KCENTER GC - EMEA",replace,,,,,,,,,,,,,,,2,,,,,,GUY-PV-EUNR1-DEV,10.134.36.6,,,,,,,,,,,,,Y,Y,N,N,Y,Y,N
 
 
-
 Param(
     [parameter(Mandatory=$true)]
     $CsvFilePath
@@ -28,21 +27,21 @@ Import-Module Az.Migrate
 
 Function CompleteMigration($replicatingServer) {
     try {
-        # Complete the migration for the server
-        $CompleteMigrationJob = Start-AzMigrateReplicationMigration -InputObject $replicatingServer
+        # Complete migration for the specified server
+        $completeMigrationJob = Complete-AzMigrateReplication -InputObject $replicatingServer
         
         # Track job status to check for completion
-        while (($CompleteMigrationJob.State -eq 'InProgress') -or ($CompleteMigrationJob.State -eq 'NotStarted')) {
+        while (($completeMigrationJob.State -eq 'InProgress') -or ($completeMigrationJob.State -eq 'NotStarted')) {
             # If the job hasn't completed, sleep for 10 seconds before checking the job status again
             Start-Sleep -Seconds 10
-            $CompleteMigrationJob = Get-AzMigrateJob -InputObject $CompleteMigrationJob
+            $completeMigrationJob = Get-AzMigrateJob -InputObject $completeMigrationJob
         }
         
         # Check if the Job completed successfully
-        if ($CompleteMigrationJob.State -eq 'Succeeded') {
+        if ($completeMigrationJob.State -eq 'Succeeded') {
             $processor.Logger.LogTrace("Migration completed successfully for the specified machine: '$($replicatingServer.SourceVMName)'")
         } else {
-            $processor.Logger.LogError("Migration couldn't be completed for the specified machine: '$($replicatingServer.SourceVMName)' - Job State: $($CompleteMigrationJob.State)")
+            $processor.Logger.LogError("Migration couldn't be completed for the specified machine: '$($replicatingServer.SourceVMName)' - Job State: $($completeMigrationJob.State)")
         }
     } catch {
         $exceptionMessage = $_ | Out-String
@@ -68,7 +67,7 @@ Function ProcessItemImpl($processor, $csvItem, $reportItem) {
     $azMigrateProjName = $csvItem.AZMIGRATEPROJECT_NAME
     if ([string]::IsNullOrEmpty($azMigrateProjName)) {
         $processor.Logger.LogError("AZMIGRATEPROJECT_NAME is not mentioned for: '$($sourceMachineName)'")
-        $reportItem.AdditionalInformation = "AZMIGRATEPROJECT_RESOURCE_GROUP_NAME is not mentioned for: '$($sourceMachineName)'"
+        $reportItem.AdditionalInformation = "AZMIGRATEPROJECT_NAME is not mentioned for: '$($sourceMachineName)'"
         return
     }
     $azMigrateApplianceName = $csvItem.AZMIGRATE_APPLIANCE_NAME
