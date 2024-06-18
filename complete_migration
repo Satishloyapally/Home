@@ -1,6 +1,7 @@
-SOURCE_MACHINE_NAME,AZMIGRATEPROJECT_RESOURCE_GROUP_NAME,AZMIGRATEPROJECT_NAME,AZMIGRATE_APPLIANCE_NAME
-GBBE13V0814,GUY-PP-EUNR1-AZUREMIGRATE,GUY-PP-EUNR1-AZUREMIGRATE,GBBED11AS867V
-GBBE13V0815,GUY-PP-EUNR1-AZUREMIGRATE,GUY-PP-EUNR1-AZUREMIGRATE,GBBED11AS867V
+AZMIGRATEPROJECT_SUBSCRIPTION_ID,AZMIGRATEPROJECT_RESOURCE_GROUP_NAME,AZMIGRATEPROJECT_NAME,AZMIGRATE_APPLIANCE_NAME,SOURCE_MACHINE_NAME,OK_TO_MIGRATE
+0c608708-8dca-42ac-9a36-0fd35523f857,GUY-PP-EUNR1-AZUREMIGRATE,GUY-PP-EUNR1-AZUREMIGRATE,GBBED11AS867V,GBBE13V0814,Y
+0c608708-8dca-42ac-9a36-0fd35523f857,GUY-PP-EUNR1-AZUREMIGRATE,GUY-PP-EUNR1-AZUREMIGRATE,GBBED11AS867V,GBBE13V0815,Y
+
 
 AZMIGRATEPROJECT_SUBSCRIPTION_ID,AZMIGRATEPROJECT_RESOURCE_GROUP_NAME,AZMIGRATEPROJECT_NAME,AZMIGRATE_APPLIANCE_NAME,SOURCE_MACHINE_NAME,OS_UPGRADE_VERSION,AZMIGRATEASSESSMENT_NAME,AZMIGRATEGROUP_NAME,SQL_SERVER_LICENSE_TYPE,TAG_KEY,TAG_VALUE,VM_TAG_KEY,VM_TAG_VALUE,DISK_TAG_KEY,DISK_TAG_VALUE,NIC_TAG_KEY,NIC_TAG_VALUE,TEST_VNET_NAME,TEST_SUBNET_NAME,TARGET_SUBSCRIPTION_ID,TARGET_RESOURCE_GROUP_NAME,TARGET_VNET_NAME,TARGET_SUBNET_NAME,TARGET_MACHINE_NAME,TARGET_MACHINE_SIZE,LICENSE_TYPE,OS_DISK_ID,OS_DISK_TYPE,DATA_DISK1_ID,DATA_DISK1_TYPE,TARGET_DISKTYPE,AVAILABILITYZONE_NUMBER,AVAILABILITYSET_NAME,TURNOFF_SOURCESERVER,TESTMIGRATE_VNET_NAME,UPDATED_TEST_VNET_NAME,UPDATED_TAG_KEY,UPDATED_TAG_VALUE,UPDATED_TAG_OPERATION,UPDATED_VMTAG_KEY,UPDATED_VMTAG_VALUE,UPDATED_VMTAG_OPERATION,UPDATED_DISKTAG_KEY,UPDATED_DISKTAG_VALUE,UPDATED_DISKTAG_OPERATION,UPDATED_NICTAG_KEY,UPDATED_NICTAG_VALUE,UPDATED_NICTAG_OPERATION,UPDATED_TARGET_RESOURCE_GROUP_NAME,UPDATED_TARGET_VNET_NAME,UPDATED_TARGET_MACHINE_NAME,UPDATED_TARGET_DISK_NAME,UPDATED_TARGET_OS_DISK_NAME,UPDATED_TARGET_DATA_DISK1_NAME,UPDATED_TARGET_DATA_DISK2_NAME,UPDATED_TARGET_MACHINE_SIZE,UPDATED_AVAILABILITYZONE_NUMBER,UPDATED_AVAILABILITYSET_NAME,UPDATED_NIC1_ID,TFO_NIC1_ID,UPDATED_TARGET_NIC1_NAME,UPDATED_TARGET_NIC1_SELECTIONTYPE,UPDATED_TARGET_NIC1_SUBNET_NAME,UPDATED_TARGET_NIC1_IP,UPDATED_TARGET_NIC1_TEST_IP,UPDATED_TARGET_NIC1_TEST_SUBNET_NAME,TFO_NIC1_TEST_SUBNET_NAME,UPDATED_NIC2_ID,TFO_NIC2_ID,UPDATED_TARGET_NIC2_NAME,UPDATED_TARGET_NIC2_SELECTIONTYPE,UPDATED_TARGET_NIC2_SUBNET_NAME,UPDATED_TARGET_NIC2_IP,UPDATED_TARGET_NIC2_TEST_IP,UPDATED_TARGET_NIC2_TEST_SUBNET_NAME,TFO_NIC2_TEST_SUBNET_NAME,OK_TO_UPDATE,OK_TO_MIGRATE,OK_TO_USE_ASSESSMENT,OK_TO_TESTMIGRATE,OK_TO_RETRIEVE_REPLICATIONSTATUS,OK_TO_CLEANUP,OK_TO_TESTMIGRATE_CLEANUP
 0c608708-8dca-42ac-9a36-0fd35523f857,GUY-PP-EUNR1-AZUREMIGRATE,GUY-PP-EUNR1-AZUREMIGRATE,GBBED11AS867V,GBBE13V0814,,,,,,,"responsibleOrg,backupPolicy,patchContact,appName","Guy Carpenter,Short,z-CHG GC Analytics Infr Svc,KCENTER GC - EMEA",,,,,,,9b91a2ed-d806-40f2-92ab-e84f03240880,gc-azmigratepilot-emea-privatedev-rg,GUY-PV-EUNR1,GUY-PV-EUNR1-DEV,GBBE13V0815,Standard_B2s_v2,WindowsServer,,Standard_LRS,,StandardSSD_LRS,,1,,Y,,,"responsibleOrg,backupPolicy,patchContact,appName","Guy Carpenter,Short,z-CHG GC Analytics Infr Svc,KCENTER GC - EMEA",Merge,"responsibleOrg,backupPolicy,patchContact,appName","Guy Carpenter,Short,z-CHG GC Analytics Infr Svc,KCENTER GC - EMEA",replace,,,,,,,,,,,,,,,2,,,,,,GUY-PV-EUNR1-DEV,10.134.36.6,,,,,,,,,,,,,Y,Y,N,N,Y,Y,N
@@ -27,25 +28,19 @@ Import-Module Az.Migrate
 
 Function CompleteMigration($replicatingServer) {
     try {
-        # Complete migration for the specified server
-        $completeMigrationJob = Complete-AzMigrateReplication -InputObject $replicatingServer
-        
-        # Track job status to check for completion
+        $completeMigrationJob = Remove-AzMigrateServerReplication -InputObject $replicatingServer
         while (($completeMigrationJob.State -eq 'InProgress') -or ($completeMigrationJob.State -eq 'NotStarted')) {
-            # If the job hasn't completed, sleep for 10 seconds before checking the job status again
             Start-Sleep -Seconds 10
             $completeMigrationJob = Get-AzMigrateJob -InputObject $completeMigrationJob
         }
-        
-        # Check if the Job completed successfully
         if ($completeMigrationJob.State -eq 'Succeeded') {
-            $processor.Logger.LogTrace("Migration completed successfully for the specified machine: '$($replicatingServer.SourceVMName)'")
+            $processor.Logger.LogTrace("Complete migration succeeded for the specified machine: '$($replicatingServer.SourceVMName)'")
         } else {
-            $processor.Logger.LogError("Migration couldn't be completed for the specified machine: '$($replicatingServer.SourceVMName)' - Job State: $($completeMigrationJob.State)")
+            $processor.Logger.LogError("Complete migration failed for the specified machine: '$($replicatingServer.SourceVMName)'. Job state: $($completeMigrationJob.State)")
         }
     } catch {
         $exceptionMessage = $_ | Out-String
-        $processor.Logger.LogError("Exception during completing migration for '$($replicatingServer.SourceVMName)': $exceptionMessage")
+        $processor.Logger.LogError("Exception during complete migration for '$($replicatingServer.SourceVMName)': $exceptionMessage")
     }
 }
 
@@ -67,7 +62,7 @@ Function ProcessItemImpl($processor, $csvItem, $reportItem) {
     $azMigrateProjName = $csvItem.AZMIGRATEPROJECT_NAME
     if ([string]::IsNullOrEmpty($azMigrateProjName)) {
         $processor.Logger.LogError("AZMIGRATEPROJECT_NAME is not mentioned for: '$($sourceMachineName)'")
-        $reportItem.AdditionalInformation = "AZMIGRATEPROJECT_NAME is not mentioned for: '$($sourceMachineName)'"
+        $reportItem.AdditionalInformation = "AZMIGRATEPROJECT_RESOURCE_GROUP_NAME is not mentioned for: '$($sourceMachineName)'"
         return
     }
     $azMigrateApplianceName = $csvItem.AZMIGRATE_APPLIANCE_NAME
@@ -76,28 +71,13 @@ Function ProcessItemImpl($processor, $csvItem, $reportItem) {
         $reportItem.AdditionalInformation = "AZMIGRATE_APPLIANCE_NAME is not mentioned for: '$($sourceMachineName)'"
         return
     }
-
-    $subscriptionId = $csvItem.AZMIGRATEPROJECT_SUBSCRIPTION_ID
-    if ([string]::IsNullOrEmpty($subscriptionId)) {
-        $processor.Logger.LogError("AZMIGRATEPROJECT_SUBSCRIPTION_ID is not mentioned for: '$($sourceMachineName)'")
-        $reportItem.AdditionalInformation = "AZMIGRATEPROJECT_SUBSCRIPTION_ID is not mentioned for: '$($sourceMachineName)'"
-        return
-    }
-
-    Write-Output "Setting Azure context to subscription ID: $subscriptionId"
-    Set-AzContext -SubscriptionId $subscriptionId -ErrorAction Stop
-
-    # Retrieve the replication server
     $ReplicatingServermachine = $AzMigrateShared.GetReplicationServer($azMigrateRG, $azMigrateProjName, $sourceMachineName, $azMigrateApplianceName)
-
-    if (-not $ReplicatingServermachine) {
-        $processor.Logger.LogError("Replication server not found or error retrieving for machine: '$($sourceMachineName)'")
-        $reportItem.AdditionalInformation = "Replication server not found or error retrieving for machine: '$($sourceMachineName)'. Please ensure the replication server exists and is accessible."
-        return
+    if ($ReplicatingServermachine) {
+        CompleteMigration -replicatingServer $ReplicatingServermachine
+    } else {
+        $processor.Logger.LogError("Replicating server not found for: '$($sourceMachineName)'")
+        $reportItem.AdditionalInformation = "Replicating server not found for: '$($sourceMachineName)'"
     }
-
-    # Complete the migration
-    CompleteMigration -replicatingServer $ReplicatingServermachine
 }
 
 Function ProcessItem($processor, $csvItem, $reportItem) {
@@ -115,4 +95,3 @@ $logger = New-AzMigrate_LoggerInstance -CommandPath $PSCommandPath
 $AzMigrateShared = New-AzMigrate_SharedInstance -Logger $logger
 $processor = New-CsvProcessorInstance -logger $logger -processItemFunction $function:ProcessItem
 $processor.ProcessFile($CsvFilePath)
-
