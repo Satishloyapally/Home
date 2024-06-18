@@ -98,9 +98,15 @@ Function ProcessItem($processor, $csvItem, $reportItem) {
     }
 }
 
+# Ensure the subscription is set correctly
+$subscriptionId = "YOUR_SUBSCRIPTION_ID_HERE"
+if (-not $subscriptionId) {
+    Write-Error "Subscription ID is not set. Please provide a valid subscription ID."
+    exit 1
+}
+Set-AzContext -SubscriptionId $subscriptionId
+
 $logger = New-AzMigrate_LoggerInstance -CommandPath $PSCommandPath
 $AzMigrateShared = New-AzMigrate_SharedInstance -Logger $logger
 $processor = New-CsvProcessorInstance -logger $logger -processItemFunction $function:ProcessItem
 $processor.ProcessFile($CsvFilePath)
-
-
