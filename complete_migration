@@ -98,13 +98,16 @@ Function ProcessItem($processor, $csvItem, $reportItem) {
     }
 }
 
-# Set the subscription ID for Azure context
+# Ensure the subscription ID is set correctly
 $subscriptionId = "9b91a2ed-d806-40f2-92ab-e84f03240880"
-if (-not $subscriptionId) {
+if ([string]::IsNullOrEmpty($subscriptionId)) {
     Write-Error "Subscription ID is not set. Please provide a valid subscription ID."
     exit 1
 }
+
+Write-Output "Setting Azure context to subscription ID: $subscriptionId"
 Set-AzContext -SubscriptionId $subscriptionId -ErrorAction Stop
+
 $logger = New-AzMigrate_LoggerInstance -CommandPath $PSCommandPath
 $AzMigrateShared = New-AzMigrate_SharedInstance -Logger $logger
 $processor = New-CsvProcessorInstance -logger $logger -processItemFunction $function:ProcessItem
