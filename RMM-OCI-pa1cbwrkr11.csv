@@ -1,0 +1,8 @@
+Origin Name,Origin IP,OS,Origin Username,Origin Password,ssh only,ssh port,Clonename,Target Name,no reboot,Target Username,Target Password,Verbose,TNG,operation,oci private ip,oci no public ip,oci av domain,oci vcn compartment id,oci vcn id,oci subnet id,oci compartment id,Shape,fault domain,provision disk type,cores,memory,App NSG
+pa1cbwrkr11 ,10.84.47.146,Linux,rackware,,TRUE,22,,pa1cbwrkr11 .ux.corp.local,,,,TRUE,,,10.89.180.202,,"Ashburn, AD1",ocid1.instance.oc1.iad.anuwcljszb2mcpqck6wjjee5auted3bxnfbunktwclm6ex4jlo3coffq3aoa,ocid1.vcn.oc1.iad.amaaaaaazb2mcpqaxd7ppghw3fswvowpzgjbadjjo37dmudqymmfuurwg52q, engtools-private-sn,ocid1.instance.oc1.iad.anuwcljszb2mcpqck6wjjee5auted3bxnfbunktwclm6ex4jlo3coffq3aoa,VM.Standard.E4.Flex ,FD1,,2,64,cloudbees_app linux_standard 
+,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Example data in row 2…...delete row before sending to Satich (Astute)…...,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Send as CSV file to Satish (Astute) ,,,,,,,,,,,,,,,,,,,,,,,,,,,
