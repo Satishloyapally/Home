@@ -1,0 +1,48 @@
+Convert Premium SSD to Standard HDD in Azure
+Powershell script to convert Premium SSD disk to standard HDD 
+
+
+# Name of the resource group that contains the VM
+$rgName = 'MYResourceGroupName'
+
+# Name of the your virtual machine
+$vmName = 'MyVirtualMachineName'
+
+# Choose between Standard_LRS and Premium_LRS based on your scenario
+$storageType = 'Standard_LRS'
+
+# Premium capable size
+# Required only if converting storage from Standard to Premium
+#$size = 'Standard_DS2_v2'
+
+
+#Provide the subscription Id where Managed Disks will be created
+$subscriptionId = 'd7x2bxx8-62xe-4xdx-xa8x-20x0x3x2x5xx'
+
+Select-AzSubscription -SubscriptionId $SubscriptionId
+
+
+
+# Stop and deallocate the VM before changing the size
+Stop-AzVM -ResourceGroupName $rgName -Name $vmName -Force
+
+$vm = Get-AzVM -Name $vmName -resourceGroupName $rgName
+
+# Change the VM size to a size that supports Premium storage
+# Skip this step if converting storage from Premium to Standard
+#$vm.HardwareProfile.VmSize = $size
+#Update-AzVM -VM $vm -ResourceGroupName $rgName
+
+# Get all disks in the resource group of the VM
+$vmDisks = Get-AzDisk -ResourceGroupName $rgName 
+
+# For disks that belong to the selected VM, convert to Premium storage
+foreach ($disk in $vmDisks)
+{
+ if ($disk.ManagedBy -eq $vm.Id)
+ {
+  $diskUpdateConfig = New-AzDiskUpdateConfig –AccountType $storageType
+  Update-AzDisk -DiskUpdate $diskUpdateConfig -ResourceGroupName $rgName `
+  -DiskName $disk.Name
+ }
+}
