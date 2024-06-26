@@ -1,3 +1,5 @@
+https://blog.sanjeebojha.com.np/2020/06/convert-premium-ssd-to-standard-hdd-in.html
+
 $RG = "gc-kcenter-emea-sit-rg"
 $VMNames = @("GBBE13V0814","GBEX15AS03VCN2")
 $diskType ="StandardSSD_LRS"
